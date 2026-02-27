@@ -515,37 +515,28 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  // Ask user which servers to enable on first session
+  // Auto-detect installed servers on session start
   pi.on("session_start", async (_event, ctx) => {
     cwd = ctx.cwd;
 
     if (configured) return;
     configured = true;
 
+    const missing: string[] = [];
     for (const [name, config] of Object.entries(LSP_CONFIGS)) {
-      const installed = isServerInstalled(config);
-      if (!installed) {
-        ctx.ui.notify(
-          `LSP: ${name} server (${config.command}) not found. Install with:\n  ${config.installHint}`,
-          "warn"
-        );
-        continue;
-      }
-
-      const enable = await ctx.ui.confirm(
-        `Enable ${name} LSP?`,
-        `Found ${config.command}. Enable LSP support for ${config.extensions.join(", ")} files?`
-      );
-      if (enable) {
+      if (isServerInstalled(config)) {
         enabledServers.set(name, config);
+      } else {
+        missing.push(`${name}: ${config.installHint}`);
       }
     }
 
-    if (enabledServers.size === 0) {
-      ctx.ui.notify("LSP: No language servers enabled.", "warn");
-    } else {
+    if (enabledServers.size > 0) {
       const names = Array.from(enabledServers.keys()).join(", ");
-      ctx.ui.notify(`LSP: Enabled servers: ${names}`, "info");
+      ctx.ui.notify(`LSP: Enabled ${names}`, "info");
+    }
+    if (missing.length > 0) {
+      ctx.ui.notify(`LSP: Not found (optional):\n  ${missing.join("\n  ")}`, "info");
     }
   });
 
