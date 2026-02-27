@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/badlogic/pi-lsp"
+    "url": "https://github.com/rHedBull/pi-lsp"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*",

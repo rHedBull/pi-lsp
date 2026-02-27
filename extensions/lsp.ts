@@ -468,6 +468,37 @@ const LSP_CONFIGS: Record<string, LSPConfig> = {
   },
 };
 
+// Safely find the first file with a given extension (no shell interpolation)
+function findFirstFile(dir: string, ext: string, maxDepth = 5, depth = 0): string | null {
+  if (depth >= maxDepth) return null;
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "__pycache__") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile() && entry.name.endsWith(ext)) return fullPath;
+    }
+    // Recurse into subdirectories
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "__pycache__") continue;
+      if (entry.isDirectory()) {
+        const found = findFirstFile(path.join(dir, entry.name), ext, maxDepth, depth + 1);
+        if (found) return found;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+// Validate that a file path resolves within the project root
+function validatePath(filePath: string, projectRoot: string): string {
+  const resolved = path.resolve(projectRoot, filePath);
+  if (!resolved.startsWith(path.resolve(projectRoot))) {
+    throw new Error(`Path '${filePath}' resolves outside the project root`);
+  }
+  return resolved;
+}
+
 export default function (pi: ExtensionAPI) {
   const clients = new Map<string, LSPClient>();
   const enabledServers = new Map<string, LSPConfig>();
@@ -602,6 +633,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
+        validatePath(params.file, cwd);
         const client = await getClient(params.file, ctx);
         const result = await client.definition(params.file, params.line, params.column);
         return { content: [{ type: "text", text: result }], details: {} };
@@ -625,6 +657,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
+        validatePath(params.file, cwd);
         const client = await getClient(params.file, ctx);
         const result = await client.references(params.file, params.line, params.column);
         return { content: [{ type: "text", text: result }], details: {} };
@@ -648,6 +681,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
+        validatePath(params.file, cwd);
         const client = await getClient(params.file, ctx);
         const result = await client.hover(params.file, params.line, params.column);
         return { content: [{ type: "text", text: result }], details: {} };
@@ -669,6 +703,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
+        validatePath(params.file, cwd);
         const client = await getClient(params.file, ctx);
         const result = await client.diagnostics(params.file);
         return { content: [{ type: "text", text: result }], details: {} };
@@ -690,6 +725,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
+        validatePath(params.file, cwd);
         const client = await getClient(params.file, ctx);
         const result = await client.documentSymbols(params.file);
         return { content: [{ type: "text", text: result }], details: {} };
@@ -726,11 +762,7 @@ export default function (pi: ExtensionAPI) {
             let client = clients.get(lang);
             if (!client?.isRunning()) {
               // Start the server — find a file of this language to bootstrap
-              const { execSync } = await import("node:child_process");
-              const found = execSync(
-                `find ${cwd} -maxdepth 5 -name "*${dummyExt}" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1`,
-                { encoding: "utf8" }
-              ).trim();
+              const found = findFirstFile(cwd, dummyExt);
               if (found) {
                 client = await getClient(found, ctx);
                 // Wait for the server to index the workspace
