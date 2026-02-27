@@ -1,0 +1,19 @@
+{
+  "name": "pi-lsp",
+  "version": "1.0.0",
+  "description": "LSP-powered code navigation tools for pi. Adds lsp_definition, lsp_references, lsp_hover, lsp_symbols, lsp_diagnostics, and lsp_workspace_symbols tools using TypeScript and Python language servers.",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/badlogic/pi-lsp"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*",
+    "@mariozechner/pi-ai": "*"
+  },
+  "pi": {
+    "extensions": ["extensions"]
+  }
+}
